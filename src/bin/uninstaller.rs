@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use p9ime::common::{to_wide, DLL_FILENAME, IME_NAME, INSTALL_DIR_NAME};
+use p9ime::files::{rename_aside, schedule_delete_on_reboot, sweep_stale_files};
 use p9ime::registration::{unregister_all_ime, unregister_uninstaller};
 use windows::Win32::Foundation::HWND;
-use windows::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_DELAY_UNTIL_REBOOT};
 use windows::Win32::UI::WindowsAndMessaging::{
     MessageBoxW, MB_ICONERROR, MB_ICONINFORMATION, MB_OK,
 };
@@ -40,17 +40,6 @@ fn show_message(title: &str, message: &str, is_error: bool, quiet: bool) {
     }
 }
 
-fn schedule_delete_on_reboot(path: &Path) {
-    let wide = to_wide(&path.to_string_lossy());
-    unsafe {
-        let _ = MoveFileExW(
-            PCWSTR(wide.as_ptr()),
-            PCWSTR::null(),
-            MOVEFILE_DELAY_UNTIL_REBOOT,
-        );
-    }
-}
-
 fn get_install_dir() -> PathBuf {
     let program_files =
         env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
@@ -76,18 +65,35 @@ fn run_uninstall(quiet: bool) -> Result<(), String> {
     let mut reboot_needed = false;
 
     if dll_path.exists() && fs::remove_file(&dll_path).is_err() {
-        // An open application may still hold the in-process COM DLL loaded in memory;
-        // mark it for deletion on next reboot.
-        schedule_delete_on_reboot(&dll_path);
+        // An open application still has the in-process COM DLL mapped, so it
+        // cannot be deleted. It *can* be renamed: move it aside so the
+        // canonical path is free for a possible reinstall, and purge the
+        // renamed copy at the next reboot. Only if even the rename fails do we
+        // fall back to queueing the canonical path itself.
+        match rename_aside(&dll_path) {
+            Ok(stale) => schedule_delete_on_reboot(&stale),
+            Err(_) => schedule_delete_on_reboot(&dll_path),
+        }
         reboot_needed = true;
     }
+
+    // Leftovers from earlier in-use replacements; queue any that are busy.
+    sweep_stale_files(&install_dir, true);
 
     let components_dir = install_dir.join("components");
     if components_dir.exists() {
         let _ = fs::remove_dir_all(&components_dir);
     }
 
-    // 4. Show the result to the user *before* spawning the self-delete helper.
+    // 4. Move *ourselves* aside while we are still running. From here on the
+    //    canonical `uninstaller.exe` path is free, so a reinstall that drops a
+    //    fresh copy while our helper is still running is never touched by it.
+    //    If the rename fails we fall back to deleting the canonical path.
+    let self_path = env::current_exe()
+        .ok()
+        .map(|exe| rename_aside(&exe).unwrap_or(exe));
+
+    // 5. Show the result to the user *before* spawning the self-delete helper.
     //    A running executable cannot be deleted on Windows, so the helper must not
     //    fire while we are still blocked on the message box.
     let msg = if reboot_needed {
@@ -100,23 +106,23 @@ fn run_uninstall(quiet: bool) -> Result<(), String> {
     };
     show_message(&format!("{} Uninstaller", IME_NAME), &msg, false, quiet);
 
-    // 5. Self-delete uninstaller.exe and the installation directory.
-    if let Ok(current_exe) = env::current_exe() {
-        // Fallback: if the helper below fails for any reason (e.g. killed by an
-        // aggressive AV), the OS removes these on the next reboot. Entries whose
-        // target no longer exists are silently ignored, so this is safe to pair
-        // with the immediate deletion attempt.
-        schedule_delete_on_reboot(&current_exe);
+    // 6. Delete the (renamed) uninstaller and the installation directory.
+    if let Some(stale_exe) = self_path {
+        // Reboot-time fallback in case the helper is killed (e.g. by AV).
+        // Deleting a directory at boot only succeeds if it is empty, so this
+        // is a harmless no-op if the user reinstalled in the meantime.
+        schedule_delete_on_reboot(&stale_exe);
         schedule_delete_on_reboot(&install_dir);
 
-        spawn_self_delete_helper(&current_exe, &install_dir);
+        spawn_self_delete_helper(&stale_exe, &install_dir);
     }
 
     Ok(())
 }
 
-/// Spawn a detached `cmd.exe` that waits for this process to exit, deletes the
-/// uninstaller executable, then removes the (now empty) installation directory.
+/// Spawn a detached `cmd.exe` that waits for this process to exit, deletes `exe`
+/// (the *renamed* uninstaller, never the canonical `uninstaller.exe`), then
+/// removes the installation directory if it is empty.
 fn spawn_self_delete_helper(exe: &Path, install_dir: &Path) {
     let exe_str = exe.to_string_lossy();
     let dir_str = install_dir.to_string_lossy();

@@ -1,4 +1,5 @@
 pub mod common;
+pub mod files;
 pub mod ime;
 pub mod registration;
 
