@@ -24,8 +24,7 @@ pub const DLL_FILENAME: &str = "p9ime.dll";
 pub const UNINSTALLER_FILENAME: &str = "uninstaller.exe";
 
 /// Registry path for Windows "Installed Apps" / "Programs and Features" uninstaller.
-pub const UNINSTALL_REG_KEY: &str =
-    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\P9IME";
+pub const UNINSTALL_REG_KEY: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\P9IME";
 
 /// Convert a Rust UTF-8 string into a null-terminated UTF-16 buffer for Win32 APIs.
 pub fn to_wide(s: &str) -> Vec<u16> {

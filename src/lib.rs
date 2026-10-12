@@ -11,7 +11,7 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::System::LibraryLoader::{DisableThreadLibraryCalls, GetModuleFileNameW};
 use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
-use windows_core::{HRESULT, IUnknown, Interface, GUID};
+use windows_core::{IUnknown, Interface, GUID, HRESULT};
 
 use crate::common::IME_CLSID;
 use crate::ime::{ClassFactory, GLOBAL_OBJECT_COUNT};
@@ -33,8 +33,12 @@ pub extern "system" fn DllMain(
     TRUE
 }
 
+/// COM entry point used by `CoCreateInstance` to obtain the class factory.
+///
+/// # Safety
+/// `rclsid`, `riid` and `ppv` must be valid pointers supplied by the COM runtime.
 #[unsafe(no_mangle)]
-pub extern "system" fn DllGetClassObject(
+pub unsafe extern "system" fn DllGetClassObject(
     rclsid: *const GUID,
     riid: *const GUID,
     ppv: *mut *mut c_void,
@@ -42,19 +46,16 @@ pub extern "system" fn DllGetClassObject(
     if ppv.is_null() {
         return E_POINTER;
     }
-    unsafe {
-        *ppv = std::ptr::null_mut();
-    }
+    *ppv = std::ptr::null_mut();
     if rclsid.is_null() || riid.is_null() {
         return E_INVALIDARG;
     }
-    let clsid = unsafe { *rclsid };
-    if clsid != IME_CLSID {
+    if *rclsid != IME_CLSID {
         return CLASS_E_CLASSNOTAVAILABLE;
     }
 
     let factory: IUnknown = ClassFactory::new().into();
-    unsafe { factory.query(riid, ppv) }
+    factory.query(riid, ppv)
 }
 
 #[unsafe(no_mangle)]

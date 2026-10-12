@@ -3,9 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use p9ime::common::{
-    to_wide, DLL_FILENAME, IME_NAME, INSTALL_DIR_NAME, UNINSTALLER_FILENAME,
-};
+use p9ime::common::{to_wide, DLL_FILENAME, IME_NAME, INSTALL_DIR_NAME, UNINSTALLER_FILENAME};
 use p9ime::registration::{register_all_ime, register_uninstaller};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -140,12 +138,8 @@ fn run_install(quiet: bool) -> Result<(), String> {
     })?;
 
     // Register Uninstaller in Windows "Installed Apps" / "Programs and Features"
-    register_uninstaller(&install_dir_str, &dst_uninstaller_str, &dst_dll_str).map_err(|e| {
-        format!(
-            "Failed to register uninstaller in Windows Registry: {}",
-            e
-        )
-    })?;
+    register_uninstaller(&install_dir_str, &dst_uninstaller_str, &dst_dll_str)
+        .map_err(|e| format!("Failed to register uninstaller in Windows Registry: {}", e))?;
 
     show_message(
         IME_NAME,

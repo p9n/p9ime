@@ -51,6 +51,12 @@ impl TextService {
     }
 }
 
+impl Default for TextService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for TextService {
     fn drop(&mut self) {
         GLOBAL_OBJECT_COUNT.fetch_sub(1, Ordering::SeqCst);
@@ -178,12 +184,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         Ok(FALSE)
     }
 
-    fn OnKeyUp(
-        &self,
-        _pic: Option<&ITfContext>,
-        _wparam: WPARAM,
-        _lparam: LPARAM,
-    ) -> Result<BOOL> {
+    fn OnKeyUp(&self, _pic: Option<&ITfContext>, _wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
         Ok(FALSE)
     }
 
@@ -229,6 +230,12 @@ impl ClassFactory {
     }
 }
 
+impl Default for ClassFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for ClassFactory {
     fn drop(&mut self) {
         GLOBAL_OBJECT_COUNT.fetch_sub(1, Ordering::SeqCst);
@@ -236,6 +243,8 @@ impl Drop for ClassFactory {
 }
 
 impl IClassFactory_Impl for ClassFactory_Impl {
+    // Signature is fixed by the `IClassFactory_Impl` trait; raw pointers come from COM callers.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn CreateInstance(
         &self,
         punkouter: Option<&IUnknown>,

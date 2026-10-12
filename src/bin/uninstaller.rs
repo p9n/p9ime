@@ -67,12 +67,8 @@ fn run_uninstall(quiet: bool) -> Result<(), String> {
     })?;
 
     // 2. Remove the Windows Uninstall registry entry
-    unregister_uninstaller().map_err(|e| {
-        format!(
-            "Failed to remove uninstaller registry entry: {}",
-            e
-        )
-    })?;
+    unregister_uninstaller()
+        .map_err(|e| format!("Failed to remove uninstaller registry entry: {}", e))?;
 
     // 3. Remove installed files under %ProgramFiles%\MinimalTsfIme
     let install_dir = get_install_dir();

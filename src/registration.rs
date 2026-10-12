@@ -9,11 +9,11 @@ use windows::Win32::System::Registry::{
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
 use windows::Win32::UI::TextServices::{
-    CLSID_TF_CategoryMgr, CLSID_TF_InputProcessorProfiles, GUID_TFCAT_TIPCAP_COMLESS,
+    CLSID_TF_CategoryMgr, CLSID_TF_InputProcessorProfiles, ITfCategoryMgr,
+    ITfInputProcessorProfileMgr, ITfInputProcessorProfiles, GUID_TFCAT_TIPCAP_COMLESS,
     GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT, GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
     GUID_TFCAT_TIPCAP_SECUREMODE, GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
-    GUID_TFCAT_TIPCAP_UIELEMENTENABLED, GUID_TFCAT_TIP_KEYBOARD, ITfCategoryMgr,
-    ITfInputProcessorProfileMgr, ITfInputProcessorProfiles,
+    GUID_TFCAT_TIPCAP_UIELEMENTENABLED, GUID_TFCAT_TIP_KEYBOARD,
 };
 use windows_core::{Interface, Result, GUID, PCWSTR};
 
@@ -48,14 +48,7 @@ unsafe fn set_reg_sz(hkey: HKEY, value_name: Option<&str>, data: &str) -> Result
 unsafe fn set_reg_dword(hkey: HKEY, value_name: &str, data: u32) -> Result<()> {
     let name_wide = to_wide(value_name);
     let bytes = data.to_le_bytes();
-    RegSetValueExW(
-        hkey,
-        PCWSTR(name_wide.as_ptr()),
-        0,
-        REG_DWORD,
-        Some(&bytes),
-    )
-    .ok()
+    RegSetValueExW(hkey, PCWSTR(name_wide.as_ptr()), 0, REG_DWORD, Some(&bytes)).ok()
 }
 
 /// Register the COM InprocServer32 entry under `HKLM\SOFTWARE\Classes\CLSID\{...}`.
@@ -194,12 +187,7 @@ pub fn unregister_tsf() -> Result<()> {
             CLSCTX_INPROC_SERVER,
         ) {
             if let Ok(profile_mgr) = profiles.cast::<ITfInputProcessorProfileMgr>() {
-                let _ = profile_mgr.UnregisterProfile(
-                    &IME_CLSID,
-                    IME_LANGID,
-                    &IME_PROFILE_GUID,
-                    0,
-                );
+                let _ = profile_mgr.UnregisterProfile(&IME_CLSID, IME_LANGID, &IME_PROFILE_GUID, 0);
             }
             let _ = profiles.Unregister(&IME_CLSID);
         }

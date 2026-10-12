@@ -1,0 +1,87 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: x86_64-pc-windows-gnu
+
+jobs:
+  build:
+    name: Build (Windows x64, cross-compiled on Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mingw-w64 (Windows cross linker)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 zip
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --release -- -D warnings
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Verify DLL exports
+        run: |
+          x86_64-w64-mingw32-objdump -p target/${TARGET}/release/p9ime.dll \
+            | grep -E "DllCanUnloadNow|DllGetClassObject|DllRegisterServer|DllUnregisterServer"
+
+      - name: Package
+        id: package
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            VERSION="dev-${GITHUB_SHA::7}"
+          fi
+          PKG="p9ime-${VERSION}-windows-x64"
+          mkdir -p "dist/${PKG}"
+          cp target/${TARGET}/release/p9ime.dll \
+             target/${TARGET}/release/installer.exe \
+             target/${TARGET}/release/uninstaller.exe \
+             "dist/${PKG}/"
+          (cd dist && zip -r "${PKG}.zip" "${PKG}")
+          (cd dist && sha256sum "${PKG}.zip" > "${PKG}.zip.sha256")
+          echo "pkg=${PKG}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.pkg }}
+          path: dist/${{ steps.package.outputs.pkg }}/
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: P9IME ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/${{ steps.package.outputs.pkg }}.zip
+            dist/${{ steps.package.outputs.pkg }}.zip.sha256
