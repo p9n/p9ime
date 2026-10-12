@@ -250,8 +250,10 @@ unsafe fn read_multi_sz(hkey: HKEY, value_name: &str) -> Option<Vec<Vec<u16>>> {
     buf.truncate(size as usize);
 
     let units: Vec<u16> = buf
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&c| u16::from_le_bytes(c))
         .collect();
 
     // Split on NUL. A well-formed value ends "...\0\0", which yields two
