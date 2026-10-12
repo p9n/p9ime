@@ -12,7 +12,7 @@ pub const IME_PROFILE_GUID: GUID = GUID::from_u128(0xe58b2c94_7a13_4f6d_b1e7_9d4
 /// Display name shown in Windows 10/11 Language Bar / Input Switcher and Installed Apps.
 pub const IME_NAME: &str = "P9IME";
 pub const IME_PUBLISHER: &str = "P9IME";
-pub const IME_VERSION: &str = "0.1.0";
+pub const IME_VERSION: &str = "0.1.1";
 
 /// Language ID the IME profile is registered under. Windows Settings lists the IME
 /// under this language's "Keyboards" (the language must be added to the user's
