@@ -25,6 +25,8 @@ use crate::common::to_wide;
 
 /// Suffix given to files that were renamed aside because they were in use.
 pub const STALE_SUFFIX: &str = ".old";
+/// Suffix used while staging a new file next to its destination.
+pub const TEMP_SUFFIX: &str = ".tmp";
 
 const SESSION_MANAGER_KEY: &str = r"SYSTEM\CurrentControlSet\Control\Session Manager";
 /// Windows spills into the `2` variant when the first value grows large.
@@ -47,11 +49,15 @@ pub fn schedule_delete_on_reboot(path: &Path) {
     }
 }
 
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = OsString::from(path.file_name().unwrap_or_default());
+    name.push(format!(".{}{}", std::process::id(), suffix));
+    path.with_file_name(name)
+}
+
 /// Name used when moving `path` aside: `<file>.<pid>.old`.
 pub fn stale_name(path: &Path) -> PathBuf {
-    let mut name = OsString::from(path.file_name().unwrap_or_default());
-    name.push(format!(".{}{}", std::process::id(), STALE_SUFFIX));
-    path.with_file_name(name)
+    with_suffix(path, STALE_SUFFIX)
 }
 
 /// Rename `path` out of the way so the canonical name becomes free. Works even
@@ -62,49 +68,73 @@ pub fn rename_aside(path: &Path) -> io::Result<PathBuf> {
     Ok(stale)
 }
 
-/// Copy `src` to `dst`, replacing `dst` even if it is currently loaded. If the
-/// plain copy is refused because the old file is in use, the old file is moved
-/// aside and queued for deletion at the next reboot.
-///
-/// Returns `true` if the old file had to be moved aside (i.e. a reboot will
-/// complete the cleanup), `false` for a plain copy.
-pub fn replace_file(src: &Path, dst: &Path) -> io::Result<bool> {
-    if let Some(parent) = dst.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let first_err = match fs::copy(src, dst) {
-        Ok(_) => return Ok(false),
+/// Move an already-staged sibling file into place at `dst`, replacing whatever
+/// is there. A plain rename is atomic; if Windows refuses because the existing
+/// file is a mapped image, that file is renamed aside and queued for deletion
+/// at the next reboot. Returns `true` in that case.
+fn move_into_place(staged: &Path, dst: &Path) -> io::Result<bool> {
+    let first_err = match fs::rename(staged, dst) {
+        Ok(()) => return Ok(false),
         Err(e) => e,
     };
     if !dst.exists() {
-        // Nothing to move aside; the copy failed for another reason.
+        let _ = fs::remove_file(staged);
         return Err(first_err);
     }
 
-    let stale = rename_aside(dst).map_err(|e| {
-        io::Error::new(
-            e.kind(),
-            format!(
-                "{} is in use and could not be moved aside: {} (original copy error: {})",
-                dst.display(),
-                e,
-                first_err
-            ),
-        )
-    })?;
+    let stale = match rename_aside(dst) {
+        Ok(p) => p,
+        Err(e) => {
+            let _ = fs::remove_file(staged);
+            return Err(io::Error::new(
+                e.kind(),
+                format!(
+                    "{} is in use and could not be moved aside: {} (original error: {})",
+                    dst.display(),
+                    e,
+                    first_err
+                ),
+            ));
+        }
+    };
     schedule_delete_on_reboot(&stale);
 
-    // The parent may have been removed between calls by a still-running
-    // uninstall helper; recreate defensively.
+    match fs::rename(staged, dst) {
+        Ok(()) => Ok(true),
+        Err(e) => {
+            let _ = fs::remove_file(staged);
+            Err(e)
+        }
+    }
+}
+
+/// Write `bytes` to `dst`, replacing `dst` even if it is currently loaded.
+/// Returns `true` if the old file had to be moved aside (a reboot will finish
+/// the cleanup).
+pub fn install_bytes(bytes: &[u8], dst: &Path) -> io::Result<bool> {
     if let Some(parent) = dst.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::copy(src, dst).map(|_| true)
+    let staged = with_suffix(dst, TEMP_SUFFIX);
+    fs::write(&staged, bytes)?;
+    move_into_place(&staged, dst)
 }
 
-/// Delete leftover `*.old` files in `dir`. Files still in use are left alone;
-/// if `schedule_if_busy` is set they are queued for deletion at reboot.
+/// Copy `src` to `dst`, replacing `dst` even if it is currently loaded.
+/// Returns `true` if the old file had to be moved aside (a reboot will finish
+/// the cleanup).
+pub fn install_file(src: &Path, dst: &Path) -> io::Result<bool> {
+    if let Some(parent) = dst.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let staged = with_suffix(dst, TEMP_SUFFIX);
+    fs::copy(src, &staged)?;
+    move_into_place(&staged, dst)
+}
+
+/// Delete leftover `*.old` / `*.tmp` files in `dir`. Files still in use are
+/// left alone; if `schedule_if_busy` is set they are queued for deletion at
+/// reboot.
 pub fn sweep_stale_files(dir: &Path, schedule_if_busy: bool) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
@@ -114,7 +144,7 @@ pub fn sweep_stale_files(dir: &Path, schedule_if_busy: bool) {
         let is_stale = path
             .file_name()
             .and_then(|n| n.to_str())
-            .is_some_and(|n| n.ends_with(STALE_SUFFIX));
+            .is_some_and(|n| n.ends_with(STALE_SUFFIX) || n.ends_with(TEMP_SUFFIX));
         if is_stale && path.is_file() && fs::remove_file(&path).is_err() && schedule_if_busy {
             schedule_delete_on_reboot(&path);
         }

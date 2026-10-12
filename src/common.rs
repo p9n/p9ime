@@ -25,7 +25,10 @@ pub const IME_LANGID: u16 = 0x0404;
 /// Subdirectory under `%ProgramFiles%` where the IME components are installed.
 pub const INSTALL_DIR_NAME: &str = "P9IME";
 pub const DLL_FILENAME: &str = "p9ime.dll";
+/// The installer copies *itself* under this name; running it with
+/// `UNINSTALL_FLAG` (or under this file name) performs an uninstall.
 pub const UNINSTALLER_FILENAME: &str = "uninstaller.exe";
+pub const UNINSTALL_FLAG: &str = "--uninstall";
 
 /// Registry path for Windows "Installed Apps" / "Programs and Features" uninstaller.
 pub const UNINSTALL_REG_KEY: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\P9IME";

@@ -8,13 +8,19 @@ description = "P9IME - Windows 10/11 Text Services Framework (TSF) IME and Insta
 name = "p9ime"
 crate-type = ["cdylib", "rlib"]
 
+# Single self-contained setup binary. It embeds p9ime.dll (see build.rs) and
+# acts as the uninstaller when invoked with --uninstall or when its file name is
+# uninstaller.exe (the installer copies itself under that name).
 [[bin]]
-name = "installer"
-path = "src/bin/installer.rs"
+name = "p9ime-installer"
+path = "src/bin/installer/main.rs"
 
-[[bin]]
-name = "uninstaller"
-path = "src/bin/uninstaller.rs"
+[features]
+default = ["embed-dll"]
+# Embed the compiled p9ime.dll into the installer via include_bytes!.
+# `cargo check`/`clippy` never link the DLL, so disable this for lint-only runs:
+#   cargo clippy --all-targets --no-default-features
+embed-dll = []
 
 [dependencies]
 windows-core = "0.58"

@@ -19,7 +19,7 @@ use windows_core::{Interface, Result, GUID, PCWSTR};
 
 use crate::common::{
     to_wide, IME_CLSID, IME_CLSID_STR, IME_LANGID, IME_NAME, IME_PROFILE_GUID, IME_PUBLISHER,
-    IME_VERSION, UNINSTALL_REG_KEY,
+    IME_VERSION, UNINSTALL_FLAG, UNINSTALL_REG_KEY,
 };
 
 /// Categories required for a Windows 10/11 TSF IME (including UWP/Immersive and System Tray).
@@ -221,8 +221,8 @@ pub fn register_uninstaller(
         )
         .ok()?;
 
-        let uninstall_cmd = format!("\"{}\"", uninstaller_path);
-        let quiet_uninstall_cmd = format!("\"{}\" --quiet", uninstaller_path);
+        let uninstall_cmd = format!("\"{}\" {}", uninstaller_path, UNINSTALL_FLAG);
+        let quiet_uninstall_cmd = format!("\"{}\" {} --quiet", uninstaller_path, UNINSTALL_FLAG);
         let display_icon = format!("{},0", dll_path);
 
         let res = (|| -> Result<()> {

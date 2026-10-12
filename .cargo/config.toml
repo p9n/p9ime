@@ -1,2 +1,7 @@
 [build]
 target = "x86_64-pc-windows-gnu"
+
+[alias]
+# `cargo check`/`clippy` never link p9ime.dll, so the installer's include_bytes!
+# has nothing to read; lint with the `embed-dll` feature off.
+lint = "clippy --all-targets --release --no-default-features -- -D warnings"
