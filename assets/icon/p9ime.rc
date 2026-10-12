@@ -1,0 +1,8 @@
+// Win32 resources shared by p9ime.dll and p9ime-installer.exe.
+//
+// Icon resource #1 is the first (and only) ICON in each module, so it is
+// "icon index 0" for ExtractIconEx-style lookups. That single index is what
+// Explorer shows for the .exe, what TSF shows in the language bar/taskbar
+// (ITfInputProcessorProfileMgr::RegisterProfile with uIconIndex = 0) and what
+// Installed Apps shows via the uninstall key's DisplayIcon ("<dll>,0").
+1 ICON "p9ime.ico"

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  P9IME icon — simplified variant for 16/20/24px (taskbar / small icon views).
+  Uses pure filled shapes with bold contrast so the framed tile, monogram P,
+  and bottom-right four-point star accent remain crisp at 16x16.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Outer frame + inner dark tile -->
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="#686868"/>
+  <rect x="20" y="20" width="216" height="216" rx="44" fill="#242424"/>
+
+  <!-- Drop shadow for P -->
+  <path fill-rule="evenodd" fill="#141414"
+        d="M66 50 H138 A54 54 0 0 1 138 158 H104 V216 H66 Z
+           M104 86 H138 A18 18 0 0 1 138 122 H104 Z"/>
+
+  <!-- Bold monogram P -->
+  <path fill-rule="evenodd" fill="#f4f4f4"
+        d="M58 42 H132 A54 54 0 0 1 132 150 H98 V208 H58 Z
+           M98 78 H132 A18 18 0 0 1 132 114 H98 Z"/>
+
+  <!-- Bright four-point sparkle in the bottom-right open quadrant -->
+  <path d="M174 150 L182 172 L204 180 L182 188 L174 210 L166 188 L144 180 L166 172 Z"
+        fill="#dcdcdc"/>
+</svg>

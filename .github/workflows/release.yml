@@ -59,6 +59,16 @@ jobs:
           x86_64-w64-mingw32-objdump -p target/${TARGET}/release/p9ime.dll \
             | grep -E "DllCanUnloadNow|DllGetClassObject|DllRegisterServer|DllUnregisterServer"
 
+      - name: Verify icon resource is linked
+        # build.rs compiles assets/icon/p9ime.rc with windres and links it into
+        # both the DLL (TSF / Installed Apps icon) and the installer (Explorer icon).
+        run: |
+          for f in p9ime.dll p9ime-installer.exe; do
+            x86_64-w64-mingw32-objdump -h "target/${TARGET}/release/${f}" | grep -q '\.rsrc' \
+              || { echo "${f}: missing .rsrc section (icon not linked)"; exit 1; }
+            echo "${f}: .rsrc present"
+          done
+
       - name: Verify installer embeds the DLL
         run: |
           DLL=target/${TARGET}/release/p9ime.dll
