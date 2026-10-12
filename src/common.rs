@@ -14,9 +14,13 @@ pub const IME_NAME: &str = "P9IME";
 pub const IME_PUBLISHER: &str = "P9IME";
 pub const IME_VERSION: &str = "0.1.0";
 
-/// Language ID: 0x0409 = English (United States).
-/// Change to 0x0404 for Chinese (Traditional, Taiwan) or 0x0804 for Chinese (Simplified).
-pub const IME_LANGID: u16 = 0x0409;
+/// Language ID the IME profile is registered under. Windows Settings lists the IME
+/// under this language's "Keyboards" (the language must be added to the user's
+/// language list first).
+///   0x0404 = Chinese (Traditional, Taiwan)
+///   0x0804 = Chinese (Simplified, PRC)
+///   0x0409 = English (United States)
+pub const IME_LANGID: u16 = 0x0404;
 
 /// Subdirectory under `%ProgramFiles%` where the IME components are installed.
 pub const INSTALL_DIR_NAME: &str = "P9IME";
